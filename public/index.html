@@ -6,16 +6,23 @@
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
-  <h2>WebRTC Demo v1</h2>
+  <h2>WebRTC Demo - v2 </h2>
   <input id="roomInput" placeholder="Enter room name" />
   <button onclick="joinRoom()">Join Room</button>
   <br><br>
-  <video id="localVideo" autoplay muted playsinline></video>
-  <video id="remoteVideo" autoplay playsinline></video>
-
+  <table style="margin-left: auto; margin-right: auto">
+        <tr>
+          <td>
+            <video id="localVideo" autoplay muted playsinline></video>
+          </td>
+          <td >
+            <video id="remoteVideo" autoplay playsinline></video>
+          </td>
+        </tr>
+      </table>
   <script>
-    //const socket = io('http://localhost:3000'); // Change to your server URL
-    const socket = io('https://webrtc-demo-b7q7.onrender.com'); // Change to your server URL    
+    //const socket = io('http://localhost:3000'); // Change to your server urls
+    const socket = io('https://webrtc-demo-b7q7.onrender.com'); // Change to your server URL  
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
     let localStream, peerConnection;
@@ -24,9 +31,11 @@
 
     async function joinRoom() {
       room = document.getElementById('roomInput').value;
+      console.log(`Index.html: ${room} - joining room`);
       socket.emit('join', room);
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localVideo.srcObject = localStream;
+      console.log(`Index.html:- joined room`);
     }
 
     socket.on('ready', async () => {
@@ -49,6 +58,7 @@
     });
 
     socket.on('offer', async offer => {
+      console.log(`Index.html: ${offer} - offer`);
       peerConnection = new RTCPeerConnection(config);
       localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
@@ -69,6 +79,7 @@
     });
 
     socket.on('answer', async answer => {
+      console.log(`Index.html: ${answer} - answering`);
       await peerConnection.setRemoteDescription(answer);
     });
 
@@ -82,4 +93,3 @@
   </script>
 </body>
 </html>
-
