@@ -1,0 +1,83 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple WebRTC Call</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+  <h2>WebRTC Demo</h2>
+  <input id="roomInput" placeholder="Enter room name" />
+  <button onclick="joinRoom()">Join Room</button>
+  <br><br>
+  <video id="localVideo" autoplay muted playsinline></video>
+  <video id="remoteVideo" autoplay playsinline></video>
+
+  <script>
+    const socket = io('http://localhost:3000'); // Change to your server URL
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    let localStream, peerConnection;
+    const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    let room;
+
+    async function joinRoom() {
+      room = document.getElementById('roomInput').value;
+      socket.emit('join', room);
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideo.srcObject = localStream;
+    }
+
+    socket.on('ready', async () => {
+      peerConnection = new RTCPeerConnection(config);
+      localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+      peerConnection.ontrack = event => {
+        remoteVideo.srcObject = event.streams[0];
+      };
+
+      peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', room, event.candidate);
+        }
+      };
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      socket.emit('offer', room, offer);
+    });
+
+    socket.on('offer', async offer => {
+      peerConnection = new RTCPeerConnection(config);
+      localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+      peerConnection.ontrack = event => {
+        remoteVideo.srcObject = event.streams[0];
+      };
+
+      peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', room, event.candidate);
+        }
+      };
+
+      await peerConnection.setRemoteDescription(offer);
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      socket.emit('answer', room, answer);
+    });
+
+    socket.on('answer', async answer => {
+      await peerConnection.setRemoteDescription(answer);
+    });
+
+    socket.on('ice-candidate', async candidate => {
+      try {
+        await peerConnection.addIceCandidate(candidate);
+      } catch (e) {
+        console.error('Error adding received ice candidate', e);
+      }
+    });
+  </script>
+</body>
+</html>
