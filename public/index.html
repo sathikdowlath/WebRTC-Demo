@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebRTC Call V.3.0 </title>
+  <title>WebRTC Call V.4.0 </title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
@@ -107,11 +107,33 @@
     .fab:hover {
       background-color: #1ebc5a;
     }
+
+    #chatPanel {
+  width: 90vw;
+  max-width: 400px;
+  margin-top: 20px;
+}
+
+.chat-bubble {
+  background-color: #dcf8c6;
+  padding: 10px;
+  margin: 5px;
+  border-radius: 10px;
+}
+
   </style>
 </head>
 <body>
-  <header>📞 WhatsApp Style Call</header>
+  <header>📞 WebRTC Call V.4.0</header>
   <div id="callStatus">Not connected</div>
+
+  <div id="chatPanel">
+  <div id="messages"></div>
+  <input id="messageInput" placeholder="Type a message..." />
+  <button onclick="sendMessage()">Send</button>
+  <button onclick="sendEmoji('😊')">😊</button>
+  <button onclick="sendEmoji('👍')">👍</button>
+</div>
 
   <input id="roomInput" placeholder="Enter room name" />
   <button onclick="joinRoom()"><i class="fas fa-phone"></i> Join Room</button>
@@ -134,6 +156,29 @@
     let localStream, peerConnection;
     const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
     let room;
+
+    function sendMessage() {
+  const msg = document.getElementById('messageInput').value;
+  socket.emit('chat', room, msg);
+  appendMessage('You', msg);
+}
+
+function sendEmoji(emoji) {
+  socket.emit('chat', room, emoji);
+  appendMessage('You', emoji);
+}
+
+socket.on('chat', (sender, msg) => {
+  appendMessage(sender, msg);
+});
+
+function appendMessage(sender, msg) {
+  const messages = document.getElementById('messages');
+  const bubble = document.createElement('div');
+  bubble.textContent = `${sender}: ${msg}`;
+  bubble.className = 'chat-bubble';
+  messages.appendChild(bubble);
+}
 
     function updateCallStatus(status) {
       document.getElementById('callStatus').textContent = status;
