@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebRTC - Version - 5</title>
+  <title>WebRTC - Version - 5.1</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
@@ -179,13 +179,8 @@
     const socket = io('https://webrtc-demo-b7q7.onrender.com'); // Change to your server URL 
 					   https://webrtc-demo-b7q7.onrender.com/	
     const videoContainer = document.getElementById('videoContainer');
-    const localVideo = document.createElement('video');
-    localVideo.autoplay = true;
-    localVideo.muted = true;
-    localVideo.playsInline = true;
-    videoContainer.appendChild(localVideo);
     let localVideoTile;
-    function createVideoTile(id, label, stream, muted = false) {
+    function createVideoTile(id, label, stream, muted = false, isLocal = false) {
       const tile = document.createElement('div');
       tile.className = 'video-tile';
       tile.id = `tile-${id}`;
@@ -199,7 +194,58 @@
       nameLabel.className = 'participant-label';
       nameLabel.textContent = label;
       tile.appendChild(nameLabel);
+      if (isLocal) {
+        // Add mute/unmute buttons for local user
+        const controls = document.createElement('div');
+        controls.style.position = 'absolute';
+        controls.style.top = '8px';
+        controls.style.right = '8px';
+        controls.style.display = 'flex';
+        controls.style.gap = '6px';
+        // Audio button
+        const audioBtn = document.createElement('button');
+        audioBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+        audioBtn.title = 'Mute/Unmute Audio';
+        audioBtn.style.background = '#fff';
+        audioBtn.style.border = 'none';
+        audioBtn.style.borderRadius = '50%';
+        audioBtn.style.width = '32px';
+        audioBtn.style.height = '32px';
+        audioBtn.onclick = () => {
+          const audioTrack = stream.getAudioTracks()[0];
+          if (audioTrack) {
+            audioTrack.enabled = !audioTrack.enabled;
+            audioBtn.innerHTML = audioTrack.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+          }
+        };
+        // Video button
+        const videoBtn = document.createElement('button');
+        videoBtn.innerHTML = '<i class="fas fa-video"></i>';
+        videoBtn.title = 'Enable/Disable Video';
+        videoBtn.style.background = '#fff';
+        videoBtn.style.border = 'none';
+        videoBtn.style.borderRadius = '50%';
+        videoBtn.style.width = '32px';
+        videoBtn.style.height = '32px';
+        videoBtn.onclick = () => {
+          const videoTrack = stream.getVideoTracks()[0];
+          if (videoTrack) {
+            videoTrack.enabled = !videoTrack.enabled;
+            videoBtn.innerHTML = videoTrack.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+          }
+        };
+        controls.appendChild(audioBtn);
+        controls.appendChild(videoBtn);
+        tile.appendChild(controls);
+      }
       return tile;
+    }
+
+    function addLocalVideoTile(stream) {
+      if (localVideoTile) videoContainer.removeChild(localVideoTile);
+      const phone = window.localStorage.getItem('phone') || 'Me';
+      localVideoTile = createVideoTile('local', phone, stream, true, true);
+      videoContainer.prepend(localVideoTile);
     }
 
     const peers = {};
@@ -223,7 +269,7 @@
       socket.emit('join', room);
       updateCallStatus("Connecting...");
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideo.srcObject = localStream;
+  addLocalVideoTile(localStream);
     }
 
     socket.on('participants', ids => {
@@ -267,11 +313,12 @@
       localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
       pc.ontrack = event => {
-        const remoteVideo = document.createElement('video');
-        remoteVideo.autoplay = true;
-        remoteVideo.playsInline = true;
-        remoteVideo.srcObject = event.streams[0];
-        videoContainer.appendChild(remoteVideo);
+        // Remove existing tile for this peer if any
+        const existing = document.getElementById(`tile-${peerId}`);
+        if (existing) videoContainer.removeChild(existing);
+        // Show peer ID for remote users
+        const tile = createVideoTile(peerId, `User: ${peerId.substring(0, 6)}`, event.streams[0]);
+        videoContainer.appendChild(tile);
       };
 
       pc.onicecandidate = event => {
