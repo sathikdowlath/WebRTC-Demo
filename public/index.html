@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebRTC - Version - 5.1</title>
+  <title>WebRTC - Version - 5.2</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
@@ -344,7 +344,8 @@
           const sender = peers[peerId].getSenders().find(s => s.track.kind === 'video');
           if (sender) sender.replaceTrack(screenStream.getVideoTracks()[0]);
         }
-        localVideo.srcObject = screenStream;
+        //localVideo.srcObject = screenStream;
+        addLocalVideoTile(screenStream);
         // When screen sharing ends, switch back to camera automatically
         screenStream.getVideoTracks()[0].addEventListener('ended', () => {
           switchToCamera();
@@ -361,7 +362,8 @@
           const sender = peers[peerId].getSenders().find(s => s.track.kind === 'video');
           if (sender) sender.replaceTrack(cameraStream.getVideoTracks()[0]);
         }
-        localVideo.srcObject = cameraStream;
+        //localVideo.srcObject = cameraStream;
+        addLocalVideoTile(cameraStream);
         localStream = cameraStream;
       } catch (err) {
         console.error("Switch to camera failed:", err);
