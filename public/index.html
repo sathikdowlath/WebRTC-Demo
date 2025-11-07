@@ -46,12 +46,28 @@
       gap: 10px;
       margin-top: 20px;
       justify-content: center;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      justify-items: center;
+      align-items: start;
     }
     video {
       width: 45vw;
       max-width: 300px;
       border-radius: 10px;
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      background: #000;
+    }
+    .participant-label {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 13px;
+      pointer-events: none;
     }
     input, button {
       margin-top: 10px;
@@ -120,40 +136,71 @@
   </style>
 </head>
 <body>
-  <header>📞 WebRTC - Version - 5</header>
-  <div id="callStatus">Not connected</div>
 
-  <input id="roomInput" placeholder="Enter room name" />
-  <button onclick="joinRoom()"><i class="fas fa-phone"></i> Join Room</button>
-  <button onclick="shareScreen()"><i class="fas fa-desktop"></i> Share Screen</button>
-  <button id="toggleTheme"><i class="fas fa-moon"></i> Toggle Dark Mode</button>
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background-color: #075e54; color: white;">
+    <span style="font-size: 24px;"><i class="fab fa-whatsapp"></i> WhatsApp WebRTC</span>
+    <button id="toggleTheme" style="background: none; border: none; color: white; font-size: 20px;"><i class="fas fa-moon"></i></button>
+  </header>
+  <div id="callStatus" style="margin-top: 10px;">Not connected</div>
 
-  <div id="participants">Participants:</div>
-  <div class="video-container" id="videoContainer"></div>
-
-  <div id="chatPanel">
-    <div id="messages"></div>
-    <input id="messageInput" placeholder="Type a message..." />
-    <button onclick="sendMessage()">Send</button>
-    <button onclick="sendEmoji('😊')">😊</button>
-    <button onclick="sendEmoji('🎉')">🎉</button>
-    <input type="file" id="fileInput" />
-    <button onclick="sendFile()">Send File</button>
+    <div style="display: flex; flex-direction: column; align-items: center; margin-top: 20px; width: 100%; max-width: 400px;">
+    <input id="phoneInput" placeholder="Enter your phone number" style="width: 100%; margin-bottom: 10px;" />
+    <input id="roomInput" placeholder="Enter room name" style="width: 100%; margin-bottom: 10px;" />
+    <div style="display: flex; gap: 10px; width: 100%;">
+      <button onclick="joinRoom()" style="flex: 1;"><i class="fas fa-phone"></i> Join Room</button>
+      <button onclick="shareScreen()" style="flex: 1;"><i class="fas fa-desktop"></i> Share Screen</button>
+      <button onclick="switchToCamera()" style="flex: 1;"><i class="fas fa-video"></i> Switch to Camera</button>
+    </div>
   </div>
 
-  <div class="fab" onclick="endCall()">
+  <div id="participants" style="margin-top: 20px;">Participants:</div>
+  <div class="video-container" id="videoContainer"></div>
+
+  <div id="chatPanel" style="margin-top: 20px;">
+    <div id="messages"></div>
+    <div style="display: flex; gap: 5px; margin-top: 10px;">
+      <input id="messageInput" placeholder="Type a message..." style="flex: 1;" />
+      <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+      <button onclick="sendEmoji('😊')">😊</button>
+      <button onclick="sendEmoji('🎉')">🎉</button>
+    </div>
+    <div style="display: flex; gap: 5px; margin-top: 10px;">
+      <input type="file" id="fileInput" style="flex: 1;" />
+      <button onclick="sendFile()"><i class="fas fa-paperclip"></i> Send File</button>
+    </div>
+  </div>
+
+  <div class="fab" onclick="endCall()" title="End Call">
     <i class="fas fa-phone-slash"></i>
   </div>
 
   <script>
 //    const socket = io('https://your-server-url.com'); // Replace with your server URL
-    const socket = io('https://webrtc-demo-b7q7.onrender.com'); // Change to your server URL  
+    const socket = io('https://webrtc-demo-b7q7.onrender.com'); // Change to your server URL 
+					   https://webrtc-demo-b7q7.onrender.com/	
     const videoContainer = document.getElementById('videoContainer');
     const localVideo = document.createElement('video');
     localVideo.autoplay = true;
     localVideo.muted = true;
     localVideo.playsInline = true;
     videoContainer.appendChild(localVideo);
+    let localVideoTile;
+    function createVideoTile(id, label, stream, muted = false) {
+      const tile = document.createElement('div');
+      tile.className = 'video-tile';
+      tile.id = `tile-${id}`;
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.playsInline = true;
+      video.muted = muted;
+      video.srcObject = stream;
+      tile.appendChild(video);
+      const nameLabel = document.createElement('div');
+      nameLabel.className = 'participant-label';
+      nameLabel.textContent = label;
+      tile.appendChild(nameLabel);
+      return tile;
+    }
 
     const peers = {};
     let localStream;
@@ -168,8 +215,11 @@
     };
 
     async function joinRoom() {
-      room = document.getElementById('roomInput').value;
+      const phone = document.getElementById('phoneInput').value.trim();
+      room = document.getElementById('roomInput').value.trim();
+      if (!phone) return alert("Enter your phone number");
       if (!room) return alert("Enter a room name");
+      window.localStorage.setItem('phone', phone);
       socket.emit('join', room);
       updateCallStatus("Connecting...");
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -248,18 +298,40 @@
           if (sender) sender.replaceTrack(screenStream.getVideoTracks()[0]);
         }
         localVideo.srcObject = screenStream;
+        // When screen sharing ends, switch back to camera automatically
+        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+          switchToCamera();
+        });
       } catch (err) {
         console.error("Screen sharing failed:", err);
       }
     }
 
+    async function switchToCamera() {
+      try {
+        const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        for (const peerId in peers) {
+          const sender = peers[peerId].getSenders().find(s => s.track.kind === 'video');
+          if (sender) sender.replaceTrack(cameraStream.getVideoTracks()[0]);
+        }
+        localVideo.srcObject = cameraStream;
+        localStream = cameraStream;
+      } catch (err) {
+        console.error("Switch to camera failed:", err);
+      }
+    }
+
     function sendMessage() {
       const msg = document.getElementById('messageInput').value;
-      socket.emit('chat', room, 'You', msg);
-      appendMessage('You', msg);
+      const phone = window.localStorage.getItem('phone') || 'You';
+      if (!msg) return;
+      socket.emit('chat', room, phone, msg);
+      appendMessage(phone, msg);
+      document.getElementById('messageInput').value = '';
     }
 
     function sendEmoji(emoji) {
-      socket.emit('chat', room, 'You', emoji);
-      appendMessage('You', emoji);
+      const phone = window.localStorage.getItem('phone') || 'You';
+      socket.emit('chat', room, phone, emoji);
+      appendMessage(phone, emoji);
     }
